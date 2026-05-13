@@ -415,4 +415,4 @@ export async function acceptQuoteAndCreateJob(quoteId: string, selectedTier: 'go
   }).returning();
   
   return { quote, job };
-}
+}// Force Build - 1
