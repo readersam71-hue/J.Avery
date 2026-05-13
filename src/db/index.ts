@@ -2,6 +2,7 @@
 // Uses the schema from architect: /home/team/shared/javery-plumbing-platform/src/db/schema.ts
 
 import { drizzle } from 'drizzle-orm/postgres-js';
+import { eq, and, gte, lte, sql, desc } from 'drizzle-orm';
 import postgres from 'postgres';
 import { 
   customers, leads, quotes, jobs, reviews, equipment, 
