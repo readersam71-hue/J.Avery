@@ -2,7 +2,7 @@
 // Uses the schema from architect: /home/team/shared/javery-plumbing-platform/src/db/schema.ts
 
 import { drizzle } from 'drizzle-orm/postgres-js';
-import { eq, and, gte, lte, sql, desc } from 'drizzle-orm';
+import { eq, and, gte, lte, sql, desc, asc } from 'drizzle-orm';
 import postgres from 'postgres';
 import { 
   customers, leads, quotes, jobs, reviews, equipment, 
@@ -45,7 +45,7 @@ export * from './schema';
  */
 export async function calculateCustomerLTV(customerId: string): Promise<number> {
   const result = await db.query.jobs.findMany({
-    where: (jobs, { eq }) => eq(jobs.customerId, customerId),
+    where: (jobs) => eq(jobs.customerId, customerId),
     with: {
       payments: true,
     },
@@ -66,7 +66,7 @@ export async function calculateCustomerLTV(customerId: string): Promise<number> 
  */
 export async function getLeadWithCustomer(leadId: string) {
   return db.query.leads.findFirst({
-    where: (leads, { eq }) => eq(leads.id, leadId),
+    where: (leads) => eq(leads.id, leadId),
     with: {
       customer: true,
       quotes: {
@@ -82,12 +82,12 @@ export async function getLeadWithCustomer(leadId: string) {
  */
 export async function getCustomerJobHistory(customerId: string) {
   return db.query.jobs.findMany({
-    where: (jobs, { eq }) => eq(jobs.customerId, customerId),
+    where: (jobs) => eq(jobs.customerId, customerId),
     with: {
       reviews: true,
       payments: true,
     },
-    orderBy: (jobs, { desc }) => [desc(jobs.createdAt)],
+    orderBy: (jobs) => [desc(jobs.createdAt)],
   });
 }
 
@@ -100,14 +100,14 @@ export async function getEquipmentDueForService(daysAhead = 42) {
   const now = new Date();
   
   return db.query.equipment.findMany({
-    where: (equipment: any, { and, lte, gte }: any) => and(
+    where: (equipment: any) => and(
       lte(equipment.nextServiceDue, futureDate.toISOString().split('T')[0]),
       gte(equipment.nextServiceDue, now.toISOString().split('T')[0])
     ),
     with: {
       customer: true,
     },
-    orderBy: (equipment: any, { asc }: any) => [asc(equipment.nextServiceDue)],
+    orderBy: (equipment: any) => [asc(equipment.nextServiceDue)],
   });
 }
 
@@ -120,7 +120,7 @@ export async function getExpiringContracts(daysAhead = 60) {
   const now = new Date();
   
   return db.query.maintenanceContracts.findMany({
-    where: (contracts: any, { and, eq, lte, gte }: any) => and(
+    where: (contracts: any) => and(
       eq(contracts.status, 'active'),
       lte(contracts.endDate, futureDate),
       gte(contracts.endDate, now)
@@ -136,8 +136,8 @@ export async function getExpiringContracts(daysAhead = 60) {
  */
 export async function getPendingNotifications(limit = 50) {
   return db.query.notifications.findMany({
-    where: (notifications, { eq }) => eq(notifications.status, 'pending'),
-    orderBy: (notifications, { asc }) => [asc(notifications.createdAt)],
+    where: (notifications) => eq(notifications.status, 'pending'),
+    orderBy: (notifications) => [asc(notifications.createdAt)],
     limit,
   });
 }
@@ -150,7 +150,7 @@ export async function getLeads() {
     with: {
       customer: true,
     },
-    orderBy: (leads, { desc, sql }) => [
+    orderBy: (leads) => [
       // Priority ordering: emergency first
       sql`CASE 
         WHEN ${leads.priority} = 'emergency' THEN 1 
@@ -223,7 +223,7 @@ export async function getDashboardAnalytics() {
   
   // 1. Today's Revenue
   const todayPayments = await db.query.payments.findMany({
-    where: (payments, { and, gte, eq }) => and(
+    where: (payments) => and(
       gte(payments.createdAt, startOfToday),
       eq(payments.status, 'succeeded')
     ),
@@ -236,7 +236,7 @@ export async function getDashboardAnalytics() {
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   
   const recentQuotes = await db.query.quotes.findMany({
-    where: (quotes, { gte }) => gte(quotes.createdAt, thirtyDaysAgo),
+    where: (quotes) => gte(quotes.createdAt, thirtyDaysAgo),
   });
   
   const sentQuotes = (recentQuotes as any[]).filter(q => q.status !== 'draft');
@@ -245,7 +245,7 @@ export async function getDashboardAnalytics() {
 
   // 3. Average Job Value (last 30 days)
   const completedJobs = await db.query.jobs.findMany({
-    where: (jobs, { and, eq, gte }) => and(
+    where: (jobs) => and(
       eq(jobs.status, 'completed'),
       gte(jobs.actualCompletion, thirtyDaysAgo)
     ),
@@ -259,12 +259,12 @@ export async function getDashboardAnalytics() {
 
   // 4. Technician ROI
   const techs = await db.query.teamMembers.findMany({
-    where: (teamMembers, { eq }) => eq(teamMembers.role, 'tech'),
+    where: (teamMembers) => eq(teamMembers.role, 'tech'),
   });
 
   const techROI = await Promise.all(techs.map(async (tech) => {
     const techJobs = await db.query.jobs.findMany({
-      where: (jobs, { and, eq, gte }) => and(
+      where: (jobs) => and(
         eq(jobs.assignedTechId, tech.id),
         eq(jobs.status, 'completed'),
         gte(jobs.actualCompletion, thirtyDaysAgo)
@@ -415,4 +415,4 @@ export async function acceptQuoteAndCreateJob(quoteId: string, selectedTier: 'go
   }).returning();
   
   return { quote, job };
-}// Force Build - 1
+}
